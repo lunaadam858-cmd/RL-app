@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Vermietungsverwaltung</title>
+
+<style>
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    padding: 10px;
+    background: #f5f5f5;
+    -webkit-font-smoothing: antialiased;
+}
+
+input, button {
+    padding: 12px;
+    margin: 5px 0;
+    width: 100%;
+    font-size: 16px; /* يمنع الأيفون من عمل زوم تلقائي */
+    border-radius: 10px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+    -webkit-appearance: none; /* يزيل التصميم الافتراضي لـ Apple */
+}
+
+input[type="date"] {
+    min-height: 45px;
+    background-color: white;
+}
+
+button {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    font-weight: bold;
+    cursor: pointer;
+    touch-action: manipulation;
+}
+
+button:active {
+    background: #45a049;
+    opacity: 0.9;
+}
+
+.table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch; /* سحب سلس للجداول في الأيفون */
+}
+
+h2 {
+    text-align: center;
+    color: #333;
+}
+
+table {
+    width: 100%;
+    min-width: 800px;
+    background: white;
+    border-collapse: collapse;
+    margin-top: 20px;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: center;
+}
+
+th {
+    background: #4CAF50;
+    color: white;
+}
+
+.delete-btn {
+    background: #ff3b30;
+    padding: 8px 12px;
+    border-radius: 8px;
+    width: auto;
+}
+</style>
+</head>
+
+<body>
+
+<h2>Vermietungsverwaltung</h2>
+
+<div id="form">
+    <input id="k" type="text" placeholder="Kennzeichen" autocomplete="off">
+    <input id="name" type="text" placeholder="Vermieter Name" autocomplete="off">
+    <input id="phone" type="tel" placeholder="Telefon (optional)">
+    <input id="start" type="date">
+    <input id="end" type="date">
+    <input id="address" type="text" placeholder="Adresse" autocomplete="off">
+
+    <input id="search" type="text" placeholder="Suche..." onkeyup="searchData()">
+
+    <button type="button" id="addBtn">Hinzufügen</button>
+</div>
+
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>Kennzeichen</th>
+<th>Name</th>
+<th>Telefon</th>
+<th>Start</th>
+<th>Zurück</th>
+<th>Adresse</th>
+<th>Löschen</th>
+</tr>
+</thead>
+<tbody id="table"></tbody>
+</table>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore,
+  collection,
+  addDoc,
+  getDocs,
+  deleteDoc,
+  doc
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBo2SY-T0ncfivaxxbxnYMcAfWq-jtWh6c",
+  authDomain: "lulu-app-3d9c9.firebaseapp.com",
+  projectId: "lulu-app-3d9c9",
+  storageBucket: "lulu-app-3d9c9.firebasestorage.app",
+  messagingSenderId: "104712311221",
+  appId: "1:104712311221:web:b5d14080c7164c766b49fc",
+  measurementId: "G-D43K8JGN7W"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// رسالة تأكيد لمسح الكاش في الأيفون
+alert("تم تحديث الكود ليتناسب مع الأيفون");
+
+let data = [];
+
+async function loadData() {
+    try {
+        const querySnapshot = await getDocs(collection(db, "cars"));
+        data = [];
+        querySnapshot.forEach((docItem) => {
+            data.push({ id: docItem.id, ...docItem.data() });
+        });
+        render();
+    } catch (e) {
+        console.error("Fehler beim Laden:", e);
+    }
+}
+
+async function addData() {
+    const k = document.getElementById("k").value.trim();
+    const name = document.getElementById("name").value.trim();
+    const phone = document.getElementById("phone").value.trim();
+    const start = document.getElementById("start").value;
+    const end = document.getElementById("end").value;
+    const address = document.getElementById("address").value.trim();
+
+    if (!k || !name || !start || !address) {
+        alert("Bitte Pflichtfelder ausfüllen!");
+        return;
+    }
+
+    const exists = data.some(item => item.k.toLowerCase() === k.toLowerCase());
+    if (exists) {
+        alert("Kennzeichen existiert bereits!");
+        return;
+    }
+
+    try {
+        await addDoc(collection(db, "cars"), {
+            k, name, phone, start, end, address,
+            createdAt: Date.now()
+        });
+
+        // مسح الحقول بعد النجاح
+        ["k", "name", "phone", "start", "end", "address"].forEach(id => {
+            document.getElementById(id).value = "";
+        });
+
+        alert("Erfolgreich hinzugefügt!");
+        await loadData();
+    } catch (e) {
+        alert("Fehler beim Speichern: " + e.message);
+    }
+}
+
+// ربط الزر بطريقة متقدمة لتعمل على الأيفون
+const addBtn = document.getElementById("addBtn");
+addBtn.addEventListener("click", (e) => {
+    e.preventDefault();
+    addData();
+});
+
+// إتاحة الدوال الأخرى عالمياً
+window.deleteItem = async function (id) {
+    if (confirm("Wirklich löschen?")) {
+        await deleteDoc(doc(db, "cars", id));
+        loadData();
+    }
+};
+
+window.searchData = function () {
+    let value = document.getElementById("search").value.toLowerCase();
+    let filtered = data.filter(item =>
+        item.k.toLowerCase().includes(value) ||
+        item.name.toLowerCase().includes(value) ||
+        item.address.toLowerCase().includes(value)
+    );
+    render(filtered);
+};
+
+function render(list = data) {
+    let tableBody = document.getElementById("table");
+    tableBody.innerHTML = "";
+    list.forEach(item => {
+        tableBody.insertAdjacentHTML('beforeend', `
+        <tr>
+            <td>${item.k}</td>
+            <td>${item.name}</td>
+            <td>${item.phone || ""}</td>
+            <td>${item.start}</td>
+            <td>${item.end || ""}</td>
+            <td>${item.address}</td>
+            <td>
+                <button class="delete-btn" onclick="deleteItem('${item.id}')">❌</button>
+            </td>
+        </tr>`);
+    });
+}
+
+loadData();
+</script>
+
+</body>
+</html>
