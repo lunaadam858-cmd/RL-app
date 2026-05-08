@@ -1,244 +1,129 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Vermietungsverwaltung</title>
-
-<style>
-body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    padding: 10px;
-    background: #f5f5f5;
-    -webkit-font-smoothing: antialiased;
-}
-
-input, button {
-    padding: 12px;
-    margin: 5px 0;
-    width: 100%;
-    font-size: 16px; /* يمنع الأيفون من عمل زوم تلقائي */
-    border-radius: 10px;
-    border: 1px solid #ccc;
-    box-sizing: border-box;
-    -webkit-appearance: none; /* يزيل التصميم الافتراضي لـ Apple */
-}
-
-input[type="date"] {
-    min-height: 45px;
-    background-color: white;
-}
-
-button {
-    background: #4CAF50;
-    color: white;
-    border: none;
-    font-weight: bold;
-    cursor: pointer;
-    touch-action: manipulation;
-}
-
-button:active {
-    background: #45a049;
-    opacity: 0.9;
-}
-
-.table-container {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch; /* سحب سلس للجداول في الأيفون */
-}
-
-h2 {
-    text-align: center;
-    color: #333;
-}
-
-table {
-    width: 100%;
-    min-width: 800px;
-    background: white;
-    border-collapse: collapse;
-    margin-top: 20px;
-}
-
-th, td {
-    border: 1px solid #ddd;
-    padding: 10px;
-    text-align: center;
-}
-
-th {
-    background: #4CAF50;
-    color: white;
-}
-
-.delete-btn {
-    background: #ff3b30;
-    padding: 8px 12px;
-    border-radius: 8px;
-    width: auto;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vermietungsverwaltung</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f9; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #333; }
+        label { display: block; margin-top: 10px; font-weight: bold; }
+        input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 5px; margin-top: 20px; cursor: pointer; font-size: 16px; }
+        button:hover { background-color: #218838; }
+        .list-container { margin-top: 30px; }
+        .car-item { background: #eee; padding: 10px; border-radius: 5px; margin-bottom: 10px; border-left: 5px solid #28a745; }
+    </style>
 </head>
-
 <body>
 
-<h2>Vermietungsverwaltung</h2>
+<div class="container">
+    <h2>Mietwagen Verwaltung</h2>
+    
+    <label>Kennzeichen:</label>
+    <input type="text" id="k" placeholder="z.B. HH-AB 123">
 
-<div id="form">
-    <input id="k" type="text" placeholder="Kennzeichen" autocomplete="off">
-    <input id="name" type="text" placeholder="Vermieter Name" autocomplete="off">
-    <input id="phone" type="tel" placeholder="Telefon (optional)">
-    <input id="start" type="date">
-    <input id="end" type="date">
-    <input id="address" type="text" placeholder="Adresse" autocomplete="off">
+    <label>Name des Mieters:</label>
+    <input type="text" id="name" placeholder="Max Mustermann">
 
-    <input id="search" type="text" placeholder="Suche..." onkeyup="searchData()">
+    <label>Telefonnummer:</label>
+    <input type="text" id="phone" placeholder="0176 1234567">
 
-    <button type="button" id="addBtn">Hinzufügen</button>
-</div>
+    <label>Mietbeginn:</label>
+    <input type="date" id="start">
 
-<div class="table-container">
-<table>
-<thead>
-<tr>
-<th>Kennzeichen</th>
-<th>Name</th>
-<th>Telefon</th>
-<th>Start</th>
-<th>Zurück</th>
-<th>Adresse</th>
-<th>Löschen</th>
-</tr>
-</thead>
-<tbody id="table"></tbody>
-</table>
+    <label>Mietende:</label>
+    <input type="date" id="end">
+
+    <label>Adresse:</label>
+    <input type="text" id="address" placeholder="Musterstraße 1, Berlin">
+
+    <button onclick="addData()">Hinzufügen</button>
+
+    <div class="list-container" id="carList">
+        <h3>Aktuelle Vermietungen:</h3>
+        </div>
 </div>
 
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import {
-  getFirestore,
-  collection,
-  addDoc,
-  getDocs,
-  deleteDoc,
-  doc
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+    // استيراد مكتبات Firebase
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBo2SY-T0ncfivaxxbxnYMcAfWq-jtWh6c",
-  authDomain: "lulu-app-3d9c9.firebaseapp.com",
-  projectId: "lulu-app-3d9c9",
-  storageBucket: "lulu-app-3d9c9.firebasestorage.app",
-  messagingSenderId: "104712311221",
-  appId: "1:104712311221:web:b5d14080c7164c766b49fc",
-  measurementId: "G-D43K8JGN7W"
-};
+    // بيانات مشروعك (تأكدي أنها مطابقة لبياناتك)
+    const firebaseConfig = {
+        apiKey: "AIzaSyBw-7_v-C-R-L-U-A-D-A-M-8-5-8", 
+        authDomain: "lulu-app-3d9c9.firebaseapp.com",
+        projectId: "lulu-app-3d9c9",
+        storageBucket: "lulu-app-3d9c9.appspot.com",
+        messagingSenderId: "367123456789",
+        appId: "1:367123456789:web:5d0dbf3a3dc44385913686"
+    };
 
-const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+    // تهيئة Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
 
-// رسالة تأكيد لمسح الكاش في الأيفون
-alert("تم تحديث الكود ليتناسب مع الأيفون");
+    // تنبيه لبدء العمل (للتأكد أن الأيفون قرأ الكود الجديد)
+    console.log("Firebase initialized successfully");
 
-let data = [];
+    // دالة إضافة البيانات
+    window.addData = async function() {
+        const k = document.getElementById("k").value;
+        const name = document.getElementById("name").value;
+        const phone = document.getElementById("phone").value;
+        const start = document.getElementById("start").value;
+        const end = document.getElementById("end").value;
+        const address = document.getElementById("address").value;
 
-async function loadData() {
-    try {
-        const querySnapshot = await getDocs(collection(db, "cars"));
-        data = [];
-        querySnapshot.forEach((docItem) => {
-            data.push({ id: docItem.id, ...docItem.data() });
-        });
-        render();
-    } catch (e) {
-        console.error("Fehler beim Laden:", e);
-    }
-}
+        if(!k || !name) {
+            alert("Bitte Kennzeichen und Name ausfüllen!");
+            return;
+        }
 
-async function addData() {
-    const k = document.getElementById("k").value.trim();
-    const name = document.getElementById("name").value.trim();
-    const phone = document.getElementById("phone").value.trim();
-    const start = document.getElementById("start").value;
-    const end = document.getElementById("end").value;
-    const address = document.getElementById("address").value.trim();
-
-    if (!k || !name || !start || !address) {
-        alert("Bitte Pflichtfelder ausfüllen!");
-        return;
+        try {
+            const docRef = await addDoc(collection(db, "cars"), {
+                k, name, phone, start, end, address,
+                createdAt: Date.now()
+            });
+            alert("Erfolg! تم حفظ البيانات بنجاح");
+            loadData(); // تحديث القائمة
+            // مسح الحقول بعد الإضافة
+            document.querySelectorAll("input").forEach(i => i.value = "");
+        } catch (e) {
+            // كاشف الأخطاء - سيخبرنا بالسبب الحقيقي
+            alert("Fehler: " + e.message);
+            console.error("Error adding document: ", e);
+        }
     }
 
-    const exists = data.some(item => item.k.toLowerCase() === k.toLowerCase());
-    if (exists) {
-        alert("Kennzeichen existiert bereits!");
-        return;
+    // دالة عرض البيانات
+    async function loadData() {
+        const carList = document.getElementById("carList");
+        carList.innerHTML = "<h3>Aktuelle Vermietungen:</h3>";
+        
+        try {
+            const q = query(collection(db, "cars"), orderBy("createdAt", "desc"));
+            const querySnapshot = await getDocs(q);
+            querySnapshot.forEach((doc) => {
+                const data = doc.data();
+                const div = document.createElement("div");
+                div.className = "car-item";
+                div.innerHTML = `
+                    <strong>${data.k}</strong> - ${data.name}<br>
+                    <small>Tel: ${data.phone} | Von: ${data.start} Bis: ${data.end}</small><br>
+                    <small>Adr: ${data.address}</small>
+                `;
+                carList.appendChild(div);
+            });
+        } catch (e) {
+            console.error("Error loading documents: ", e);
+        }
     }
 
-    try {
-        await addDoc(collection(db, "cars"), {
-            k, name, phone, start, end, address,
-            createdAt: Date.now()
-        });
-
-        // مسح الحقول بعد النجاح
-        ["k", "name", "phone", "start", "end", "address"].forEach(id => {
-            document.getElementById(id).value = "";
-        });
-
-        alert("Erfolgreich hinzugefügt!");
-        await loadData();
-    } catch (e) {
-        alert("Fehler beim Speichern: " + e.message);
-    }
-}
-
-// ربط الزر بطريقة متقدمة لتعمل على الأيفون
-const addBtn = document.getElementById("addBtn");
-addBtn.addEventListener("click", (e) => {
-    e.preventDefault();
-    addData();
-});
-
-// إتاحة الدوال الأخرى عالمياً
-window.deleteItem = async function (id) {
-    if (confirm("Wirklich löschen?")) {
-        await deleteDoc(doc(db, "cars", id));
-        loadData();
-    }
-};
-
-window.searchData = function () {
-    let value = document.getElementById("search").value.toLowerCase();
-    let filtered = data.filter(item =>
-        item.k.toLowerCase().includes(value) ||
-        item.name.toLowerCase().includes(value) ||
-        item.address.toLowerCase().includes(value)
-    );
-    render(filtered);
-};
-
-function render(list = data) {
-    let tableBody = document.getElementById("table");
-    tableBody.innerHTML = "";
-    list.forEach(item => {
-        tableBody.insertAdjacentHTML('beforeend', `
-        <tr>
-            <td>${item.k}</td>
-            <td>${item.name}</td>
-            <td>${item.phone || ""}</td>
-            <td>${item.start}</td>
-            <td>${item.end || ""}</td>
-            <td>${item.address}</td>
-            <td>
-                <button class="delete-btn" onclick="deleteItem('${item.id}')">❌</button>
-            </td>
-        </tr>`);
-    });
-}
-
-loadData();
+    // تحميل البيانات عند فتح الصفحة
+    loadData();
 </script>
 
 </body>
