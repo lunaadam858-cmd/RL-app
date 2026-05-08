@@ -3,55 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vermietungsverwaltung</title>
+    <title>Mietwagen Verwaltung</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; background-color: #f4f4f9; }
-        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
-        h2 { text-align: center; color: #333; }
-        label { display: block; margin-top: 10px; font-weight: bold; }
-        input { width: 100%; padding: 10px; margin-top: 5px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; background-color: #28a745; color: white; border: none; border-radius: 5px; margin-top: 20px; cursor: pointer; font-size: 16px; }
-        button:hover { background-color: #218838; }
-        .list-container { margin-top: 30px; }
-        .car-item { background: #eee; padding: 10px; border-radius: 5px; margin-bottom: 10px; border-left: 5px solid #28a745; }
+        body { font-family: -apple-system, sans-serif; margin: 20px; background-color: #f0f2f5; }
+        .container { max-width: 500px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h2 { text-align: center; color: #1a1a1a; }
+        input { width: 100%; padding: 12px; margin-top: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 15px; background-color: #007aff; color: white; border: none; border-radius: 10px; margin-top: 20px; cursor: pointer; font-size: 17px; font-weight: 600; }
+        button:active { transform: scale(0.98); }
+        #searchBar { background-color: #fff9e6; border: 2px solid #ffcc00; margin-bottom: 20px; }
+        .car-item { background: #fff; padding: 15px; border-radius: 10px; margin-top: 10px; border-left: 5px solid #007aff; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .error-msg { color: red; font-size: 14px; margin-top: 5px; display: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <h2>Mietwagen Verwaltung</h2>
-    
-    <label>Kennzeichen:</label>
-    <input type="text" id="k" placeholder="z.B. HH-AB 123">
 
-    <label>Name des Mieters:</label>
-    <input type="text" id="name" placeholder="Max Mustermann">
+    <input type="text" id="searchBar" placeholder="🔍 Nach Kennzeichen suchen..." onkeyup="searchCar()">
 
-    <label>Telefonnummer:</label>
-    <input type="text" id="phone" placeholder="0176 1234567">
+    <div id="formSection">
+        <input type="text" id="k" placeholder="Kennzeichen (z.B. HH-AB 123)*">
+        <input type="text" id="name" placeholder="Name des Mieters*">
+        <input type="tel" id="phone" placeholder="Telefonnummer">
+        <input type="date" id="start" title="Mietbeginn">
+        <label style="font-size: 12px; color: #888;">Mietende (Optional):</label>
+        <input type="date" id="end" title="Mietende">
+        <input type="text" id="address" placeholder="Adresse">
+        
+        <button id="addBtn" onclick="addData()">Hinzufügen</button>
+    </div>
 
-    <label>Mietbeginn:</label>
-    <input type="date" id="start">
-
-    <label>Mietende:</label>
-    <input type="date" id="end">
-
-    <label>Adresse:</label>
-    <input type="text" id="address" placeholder="Musterstraße 1, Berlin">
-
-    <button onclick="addData()">Hinzufügen</button>
-
-    <div class="list-container" id="carList">
-        <h3>Aktuelle Vermietungen:</h3>
+    <div id="carList">
+        <h3 style="margin-top:30px;">Aktuelle Vermietungen:</h3>
         </div>
 </div>
 
 <script type="module">
-    // استيراد مكتبات Firebase
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-    import { getFirestore, collection, addDoc, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, getDocs, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    // بيانات مشروعك (تأكدي أنها مطابقة لبياناتك)
     const firebaseConfig = {
         apiKey: "AIzaSyBw-7_v-C-R-L-U-A-D-A-M-8-5-8", 
         authDomain: "lulu-app-3d9c9.firebaseapp.com",
@@ -61,68 +53,86 @@
         appId: "1:367123456789:web:5d0dbf3a3dc44385913686"
     };
 
-    // تهيئة Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // تنبيه لبدء العمل (للتأكد أن الأيفون قرأ الكود الجديد)
-    console.log("Firebase initialized successfully");
-
-    // دالة إضافة البيانات
+    // دالة الإضافة مع فحص التكرار
     window.addData = async function() {
-        const k = document.getElementById("k").value;
-        const name = document.getElementById("name").value;
-        const phone = document.getElementById("phone").value;
-        const start = document.getElementById("start").value;
-        const end = document.getElementById("end").value;
-        const address = document.getElementById("address").value;
-
-        if(!k || !name) {
-            alert("Bitte Kennzeichen und Name ausfüllen!");
+        const kValue = document.getElementById("k").value.trim().toUpperCase();
+        const nameValue = document.getElementById("name").value.trim();
+        
+        if(!kValue || !nameValue) {
+            alert("Kennzeichen und Name sind Pflichtfelder!");
             return;
         }
 
+        const btn = document.getElementById("addBtn");
+        
         try {
-            const docRef = await addDoc(collection(db, "cars"), {
-                k, name, phone, start, end, address,
+            btn.disabled = true;
+            btn.innerText = "Prüfen...";
+
+            // 1. فحص هل الـ Kennzeichen موجود مسبقاً
+            const q = query(collection(db, "cars"), where("k", "==", kValue));
+            const querySnapshot = await getDocs(q);
+            
+            if (!querySnapshot.empty) {
+                alert("Fehler: Dieses Kennzeichen ist bereits registriert! (هذا الرقم موجود مسبقاً)");
+                btn.disabled = false;
+                btn.innerText = "Hinzufügen";
+                return;
+            }
+
+            // 2. إذا لم يكن موجوداً، يتم الإضافة
+            btn.innerText = "Speichern...";
+            await addDoc(collection(db, "cars"), {
+                k: kValue,
+                name: nameValue,
+                phone: document.getElementById("phone").value || "-",
+                start: document.getElementById("start").value || "-",
+                end: document.getElementById("end").value || "Offen",
+                address: document.getElementById("address").value || "-",
                 createdAt: Date.now()
             });
-            alert("Erfolg! تم حفظ البيانات بنجاح");
-            loadData(); // تحديث القائمة
-            // مسح الحقول بعد الإضافة
-            document.querySelectorAll("input").forEach(i => i.value = "");
+
+            alert("✅ Erfolgreich gespeichert!");
+            location.reload();
         } catch (e) {
-            // كاشف الأخطاء - سيخبرنا بالسبب الحقيقي
             alert("Fehler: " + e.message);
-            console.error("Error adding document: ", e);
+            btn.disabled = false;
+            btn.innerText = "Hinzufügen";
         }
     }
 
     // دالة عرض البيانات
     async function loadData() {
         const carList = document.getElementById("carList");
-        carList.innerHTML = "<h3>Aktuelle Vermietungen:</h3>";
-        
-        try {
-            const q = query(collection(db, "cars"), orderBy("createdAt", "desc"));
-            const querySnapshot = await getDocs(q);
-            querySnapshot.forEach((doc) => {
-                const data = doc.data();
-                const div = document.createElement("div");
-                div.className = "car-item";
-                div.innerHTML = `
-                    <strong>${data.k}</strong> - ${data.name}<br>
-                    <small>Tel: ${data.phone} | Von: ${data.start} Bis: ${data.end}</small><br>
-                    <small>Adr: ${data.address}</small>
-                `;
-                carList.appendChild(div);
-            });
-        } catch (e) {
-            console.error("Error loading documents: ", e);
+        const q = query(collection(db, "cars"), orderBy("createdAt", "desc"));
+        const querySnapshot = await getDocs(q);
+        querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            const div = document.createElement("div");
+            div.className = "car-item";
+            div.setAttribute("data-k", data.k);
+            div.innerHTML = `
+                <strong>${data.k}</strong> | ${data.name}<br>
+                <small>📞 ${data.phone} | 📍 ${data.address}</small><br>
+                <small>🗓️ ${data.start} bis ${data.end}</small>
+            `;
+            carList.appendChild(div);
+        });
+    }
+
+    // دالة البحث
+    window.searchCar = function() {
+        const input = document.getElementById("searchBar").value.toUpperCase();
+        const items = document.getElementsByClassName("car-item");
+        for (let item of items) {
+            const kText = item.getAttribute("data-k");
+            item.style.display = kText.includes(input) ? "block" : "none";
         }
     }
 
-    // تحميل البيانات عند فتح الصفحة
     loadData();
 </script>
 
